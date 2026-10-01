@@ -1,12 +1,29 @@
 import { Listing } from "./types";
 
-export const categories = [
-  "All items",
-  "Textbooks",
-  "Furniture",
-  "Tech",
-  "Fashion",
+export interface CategoryInfo {
+  name: string;
+  icon: string;
+}
+
+export const CATEGORIES: CategoryInfo[] = [
+  { name: "All items", icon: "✨" },
+  { name: "Textbooks", icon: "📚" },
+  { name: "Furniture", icon: "🪑" },
+  { name: "Tech", icon: "💻" },
+  { name: "Fashion", icon: "👕" },
+  { name: "Sports", icon: "⚽" },
+  { name: "Housing", icon: "🏠" },
+  { name: "Art & Supplies", icon: "🎨" },
 ];
+
+export const categories = CATEGORIES.map((c) => c.name);
+
+export const getCategoryIcon = (categoryName: string): string => {
+  const match = CATEGORIES.find(
+    (c) => c.name.toLowerCase() === categoryName.toLowerCase(),
+  );
+  return match ? match.icon : "🏷️";
+};
 
 export const seedListings: Listing[] = [
   {
@@ -53,4 +70,38 @@ export const seedListings: Listing[] = [
     image: "https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?w=800",
     description: "A warm, classic layer with a relaxed fit.",
   },
+  {
+    id: "5",
+    title: "Commuter Road Bike",
+    price: 110,
+    category: "Sports",
+    seller: "Chris M.",
+    campus: "South Campus",
+    condition: "Good condition",
+    image: "https://images.unsplash.com/photo-1485965120184-e220f721d03e?w=800",
+    description: "Lightweight 21-speed road bike, includes helmet and U-lock.",
+  },
+  {
+    id: "6",
+    title: "Summer Sublet - Studio Apartment",
+    price: 650,
+    category: "Housing",
+    seller: "Elena V.",
+    campus: "College Town",
+    condition: "Furnished",
+    image: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800",
+    description: "Private studio apartment available for summer quarter. Utilities included.",
+  },
+  {
+    id: "7",
+    title: "Acrylic Paint & Canvas Set",
+    price: 25,
+    category: "Art & Supplies",
+    seller: "David L.",
+    campus: "Fine Arts Center",
+    condition: "Brand new",
+    image: "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=800",
+    description: "Set of 24 acrylic paint tubes and 3 unused stretched canvases.",
+  },
 ];
+
