@@ -1,4 +1,5 @@
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { getCategoryIcon } from "../data";
 import { Listing } from "../types";
 
 export function ListingCard({
@@ -6,16 +7,33 @@ export function ListingCard({
   saved,
   onSave,
   onOpen,
+  onCategorySelect,
 }: {
   item: Listing;
   saved: boolean;
   onSave: () => void;
   onOpen: () => void;
+  onCategorySelect?: (category: string) => void;
 }) {
+  const categoryIcon = getCategoryIcon(item.category);
+
   return (
     <Pressable style={styles.card} onPress={onOpen}>
       <View style={styles.photo}>
         <Image source={{ uri: item.image }} style={styles.image} />
+        <Pressable
+          style={styles.categoryBadge}
+          onPress={(e) => {
+            if (onCategorySelect) {
+              e.stopPropagation();
+              onCategorySelect(item.category);
+            }
+          }}
+        >
+          <Text style={styles.categoryBadgeText}>
+            {categoryIcon} {item.category}
+          </Text>
+        </Pressable>
         <Pressable
           accessibilityLabel={saved ? "Remove saved item" : "Save item"}
           style={styles.save}
@@ -53,6 +71,20 @@ const styles = StyleSheet.create({
   },
   photo: { height: 148, backgroundColor: "#E5ECE5" },
   image: { width: "100%", height: "100%" },
+  categoryBadge: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    backgroundColor: "rgba(23, 60, 52, 0.85)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  categoryBadgeText: {
+    color: "#FFF",
+    fontSize: 10,
+    fontWeight: "700",
+  },
   save: {
     position: "absolute",
     top: 10,
@@ -80,3 +112,4 @@ const styles = StyleSheet.create({
   muted: { color: "#87918C", fontSize: 12 },
   tiny: { color: "#A0AAA4", fontSize: 10, marginTop: 5 },
 });
+

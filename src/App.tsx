@@ -41,7 +41,7 @@ import { MessagesPage } from "./pages/MessagesPage";
 import { MyListingsPage } from "./pages/MyListingsPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { SavedPage } from "./pages/SavedPage";
-import { seedListings } from "./data";
+import { CATEGORIES, getCategoryIcon, seedListings } from "./data";
 import { auth, db, firebaseConfigured } from "./firebase";
 import { Listing, Tab } from "./types";
 
@@ -218,6 +218,7 @@ export default function App() {
       {tab === "Explore" && (
         <ExplorePage
           items={filteredItems}
+          allItems={items}
           query={queryText}
           category={category}
           savedIds={savedIds}
@@ -270,6 +271,10 @@ export default function App() {
         user={user}
         onClose={() => setSelected(null)}
         onContact={contactSeller}
+        onSelectCategory={(cat) => {
+          setCategory(cat);
+          setTab("Explore");
+        }}
       />
       <AuthModal
         visible={authOpen}
@@ -357,11 +362,13 @@ function ListingModal({
   user,
   onClose,
   onContact,
+  onSelectCategory,
 }: {
   item: Listing | null;
   user: User | null;
   onClose: () => void;
   onContact: () => void;
+  onSelectCategory: (category: string) => void;
 }) {
   return (
     <Modal
@@ -378,9 +385,17 @@ function ListingModal({
               <Text style={styles.closeText}>×</Text>
             </Pressable>
             <View style={styles.detailBody}>
-              <Text style={styles.detailCategory}>
-                {item.category.toUpperCase()}
-              </Text>
+              <Pressable
+                style={styles.detailCategoryBadge}
+                onPress={() => {
+                  onSelectCategory(item.category);
+                  onClose();
+                }}
+              >
+                <Text style={styles.detailCategoryText}>
+                  {getCategoryIcon(item.category)} {item.category.toUpperCase()}
+                </Text>
+              </Pressable>
               <Text style={styles.detailTitle}>{item.title}</Text>
               <Text style={styles.detailPrice}>${item.price}</Text>
               <Text style={styles.muted}>
@@ -446,6 +461,9 @@ function SellModal({
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
   const [category, setCategory] = useState("Textbooks");
+
+  const selectableCategories = CATEGORIES.filter((c) => c.name !== "All items");
+
   return (
     <Modal visible={visible} transparent animationType="slide">
       <View style={styles.backdrop}>
@@ -463,14 +481,43 @@ function SellModal({
             placeholder="e.g. Organic Chemistry textbook"
             style={styles.field}
           />
-          <Text style={styles.label}>Price</Text>
+          <Text style={styles.label}>Price ($)</Text>
           <TextInput
             value={price}
             onChangeText={setPrice}
             keyboardType="numeric"
-            placeholder="$ 0"
+            placeholder="0"
             style={styles.field}
           />
+
+          <Text style={styles.label}>Select Category</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.sellCategories}
+          >
+            {selectableCategories.map((cat) => (
+              <Pressable
+                key={cat.name}
+                onPress={() => setCategory(cat.name)}
+                style={[
+                  styles.sellCategoryOption,
+                  category === cat.name && styles.sellCategoryActive,
+                ]}
+              >
+                <Text style={styles.sellCategoryIcon}>{cat.icon}</Text>
+                <Text
+                  style={[
+                    styles.sellCategoryText,
+                    category === cat.name && styles.sellCategoryTextActive,
+                  ]}
+                >
+                  {cat.name}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+
           <Pressable
             disabled={!title || !price}
             style={[styles.primary, (!title || !price) && styles.disabled]}
@@ -550,17 +597,25 @@ const styles = StyleSheet.create({
   },
   closeText: { color: "#173C34", fontSize: 26 },
   detailBody: { padding: 24 },
-  detailCategory: {
+  detailCategoryBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: "#E6F0E6",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  detailCategoryText: {
     color: "#23775D",
     fontSize: 11,
     fontWeight: "800",
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
   },
   detailTitle: {
     color: "#173C34",
     fontSize: 25,
     fontWeight: "800",
-    marginTop: 8,
+    marginTop: 4,
   },
   detailPrice: {
     color: "#1C7057",
@@ -643,5 +698,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     color: "#173C34",
   },
+  sellCategories: {
+    gap: 8,
+    paddingVertical: 6,
+  },
+  sellCategoryOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#F0F4EF",
+    borderWidth: 1,
+    borderColor: "#DDE4DC",
+    gap: 6,
+  },
+  sellCategoryActive: {
+    backgroundColor: "#1F5D4C",
+    borderColor: "#1F5D4C",
+  },
+  sellCategoryIcon: {
+    fontSize: 14,
+  },
+  sellCategoryText: {
+    color: "#4E5C56",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  sellCategoryTextActive: {
+    color: "#FFF",
+  },
   disabled: { opacity: 0.45 },
 });
+
