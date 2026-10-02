@@ -43,6 +43,11 @@ export function ListingCard({
             {saved ? "♥" : "♡"}
           </Text>
         </Pressable>
+        {item.status === "sold" && (
+          <View style={styles.soldBadge}>
+            <Text style={styles.soldBadgeText}>SOLD</Text>
+          </View>
+        )}
       </View>
       <View style={styles.body}>
         <View style={styles.row}>
@@ -95,6 +100,21 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,.92)",
     justifyContent: "center",
     alignItems: "center",
+  },
+  soldBadge: {
+    position: "absolute",
+    bottom: 10,
+    left: 10,
+    backgroundColor: "#C3535B",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  soldBadgeText: {
+    color: "#FFF",
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
   },
   heart: { color: "#365B4C", fontSize: 21 },
   red: { color: "#C3535B" },
