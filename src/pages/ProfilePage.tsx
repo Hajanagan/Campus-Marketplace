@@ -19,6 +19,7 @@ export function ProfilePage({
   onSaved,
   onSignIn,
   onSignOut,
+  onViewSellerProfile,
 }: {
   user: User | null;
   savedCount: number;
@@ -30,6 +31,7 @@ export function ProfilePage({
   onSaved: () => void;
   onSignIn: () => void;
   onSignOut: () => void;
+  onViewSellerProfile: () => void;
 }) {
   const name =
     user?.displayName || user?.email?.split("@")[0] || "Campus guest";
@@ -51,17 +53,28 @@ export function ProfilePage({
           </View>
         )}
         <Text style={styles.name}>{name}</Text>
+        {user && (
+          <View style={styles.verifiedBadge}>
+            <Text style={styles.verifiedBadgeText}>🎓 Verified Student Seller</Text>
+          </View>
+        )}
         <Text style={styles.muted}>
           {user?.email || "Sign in to sell and message"}
         </Text>
       </View>
       <View style={styles.menu}>
         <Row
+          label="Public Seller Profile"
+          value="Preview →"
+          onPress={onViewSellerProfile}
+        />
+        <Row
           label="My listings"
           value={String(listingCount)}
           onPress={onMyListings}
         />
         <Row label="Saved items" value={String(savedCount)} onPress={onSaved} />
+        <Row label="Seller rating" value="★ 5.0 (Top Rated)" />
         <Row label="Meetup preferences" value="North Campus" />
       </View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -115,6 +128,18 @@ const styles = StyleSheet.create({
   },
   initials: { fontSize: 22, color: "#225347", fontWeight: "800" },
   name: { color: "#173C34", fontSize: 24, fontWeight: "800", marginBottom: 6 },
+  verifiedBadge: {
+    backgroundColor: "#E6F3EC",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  verifiedBadgeText: {
+    color: "#1E684E",
+    fontSize: 12,
+    fontWeight: "800",
+  },
   muted: { color: "#87918C", fontSize: 12 },
   menu: {
     backgroundColor: "#FFF",

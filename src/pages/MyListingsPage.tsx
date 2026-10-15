@@ -7,10 +7,12 @@ export function MyListingsPage({
   items,
   onOpen,
   onSell,
+  onSellerSelect,
 }: {
   items: Listing[];
   onOpen: (item: Listing) => void;
   onSell: () => void;
+  onSellerSelect?: (seller: string, sellerId?: string) => void;
 }) {
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -39,6 +41,7 @@ export function MyListingsPage({
             saved={false}
             onSave={() => undefined}
             onOpen={() => onOpen(item)}
+            onSellerSelect={onSellerSelect}
           />
         )}
       />

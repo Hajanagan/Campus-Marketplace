@@ -22,6 +22,7 @@ export function ExplorePage({
   onSave,
   onOpen,
   onProfile,
+  onSellerSelect,
 }: {
   items: Listing[];
   allItems?: Listing[];
@@ -33,6 +34,7 @@ export function ExplorePage({
   onSave: (id: string) => void;
   onOpen: (item: Listing) => void;
   onProfile: () => void;
+  onSellerSelect?: (seller: string, sellerId?: string) => void;
 }) {
   const sourceItems = allItems.length > 0 ? allItems : items;
 
@@ -185,6 +187,7 @@ export function ExplorePage({
             onSave={() => onSave(item.id)}
             onOpen={() => onOpen(item)}
             onCategorySelect={(cat) => onCategoryChange(cat)}
+            onSellerSelect={onSellerSelect}
           />
         )}
       />

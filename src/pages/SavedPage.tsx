@@ -7,10 +7,12 @@ export function SavedPage({
   items,
   onSave,
   onOpen,
+  onSellerSelect,
 }: {
   items: Listing[];
   onSave: (id: string) => void;
   onOpen: (item: Listing) => void;
+  onSellerSelect?: (seller: string, sellerId?: string) => void;
 }) {
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -37,6 +39,7 @@ export function SavedPage({
             saved
             onSave={() => onSave(item.id)}
             onOpen={() => onOpen(item)}
+            onSellerSelect={onSellerSelect}
           />
         )}
       />

@@ -8,12 +8,14 @@ export function ListingCard({
   onSave,
   onOpen,
   onCategorySelect,
+  onSellerSelect,
 }: {
   item: Listing;
   saved: boolean;
   onSave: () => void;
   onOpen: () => void;
   onCategorySelect?: (category: string) => void;
+  onSellerSelect?: (seller: string, sellerId?: string) => void;
 }) {
   const categoryIcon = getCategoryIcon(item.category);
 
@@ -34,6 +36,11 @@ export function ListingCard({
             {categoryIcon} {item.category}
           </Text>
         </Pressable>
+        {item.status === "sold" && (
+          <View style={styles.soldBadge}>
+            <Text style={styles.soldBadgeText}>SOLD</Text>
+          </View>
+        )}
         <Pressable
           accessibilityLabel={saved ? "Remove saved item" : "Save item"}
           style={styles.save}
@@ -54,7 +61,19 @@ export function ListingCard({
         <Text style={styles.muted}>
           {item.condition} · {item.campus}
         </Text>
-        <Text style={styles.tiny}>Listed by {item.seller}</Text>
+        <Pressable
+          style={styles.sellerRow}
+          onPress={(e) => {
+            if (onSellerSelect) {
+              e.stopPropagation();
+              onSellerSelect(item.seller, item.sellerId);
+            }
+          }}
+        >
+          <Text style={styles.tiny}>
+            Listed by <Text style={styles.sellerNameHighlight}>{item.seller}</Text>
+          </Text>
+        </Pressable>
       </View>
     </Pressable>
   );
@@ -110,6 +129,27 @@ const styles = StyleSheet.create({
   },
   price: { color: "#1C7057", fontSize: 14, fontWeight: "800" },
   muted: { color: "#87918C", fontSize: 12 },
-  tiny: { color: "#A0AAA4", fontSize: 10, marginTop: 5 },
+  sellerRow: { marginTop: 6, alignSelf: "flex-start" },
+  tiny: { color: "#7F8E87", fontSize: 11 },
+  sellerNameHighlight: {
+    color: "#1F5D4C",
+    fontWeight: "700",
+    textDecorationLine: "underline",
+  },
+  soldBadge: {
+    position: "absolute",
+    bottom: 8,
+    left: 8,
+    backgroundColor: "#C3535B",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  soldBadgeText: {
+    color: "#FFF",
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
 });
 

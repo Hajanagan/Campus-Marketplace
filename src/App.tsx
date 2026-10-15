@@ -41,9 +41,10 @@ import { MessagesPage } from "./pages/MessagesPage";
 import { MyListingsPage } from "./pages/MyListingsPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { SavedPage } from "./pages/SavedPage";
-import { CATEGORIES, getCategoryIcon, seedListings } from "./data";
+import { SellerProfileModal } from "./components/SellerProfileModal";
+import { CATEGORIES, getCategoryIcon, getSellerProfile, seedListings } from "./data";
 import { auth, db, firebaseConfigured } from "./firebase";
-import { Listing, Tab } from "./types";
+import { Listing, SellerProfile, Tab } from "./types";
 
 async function registerUser(user: User) {
   if (!db) return;
@@ -69,6 +70,7 @@ export default function App() {
   const [category, setCategory] = useState("All items");
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [selected, setSelected] = useState<Listing | null>(null);
+  const [selectedSeller, setSelectedSeller] = useState<SellerProfile | null>(null);
   const [user, setUser] = useState<User | null>(auth?.currentUser || null);
   const [authOpen, setAuthOpen] = useState(false);
   const [sellOpen, setSellOpen] = useState(false);
@@ -212,6 +214,11 @@ export default function App() {
     setTab("Messages");
   };
 
+  const handleOpenSeller = (sellerNameOrId: string, sellerId?: string) => {
+    const profile = getSellerProfile(sellerNameOrId, user, items);
+    setSelectedSeller(profile);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
@@ -227,6 +234,7 @@ export default function App() {
           onSave={toggleSaved}
           onOpen={setSelected}
           onProfile={() => setTab("Profile")}
+          onSellerSelect={handleOpenSeller}
         />
       )}
       {tab === "Saved" && (
@@ -234,6 +242,7 @@ export default function App() {
           items={items.filter((item) => savedIds.includes(item.id))}
           onSave={toggleSaved}
           onOpen={setSelected}
+          onSellerSelect={handleOpenSeller}
         />
       )}
       {tab === "Messages" && (
@@ -244,6 +253,7 @@ export default function App() {
           items={myListings}
           onOpen={setSelected}
           onSell={() => setSellOpen(true)}
+          onSellerSelect={handleOpenSeller}
         />
       )}
       {tab === "Profile" && (
@@ -258,6 +268,12 @@ export default function App() {
           onSaved={() => setTab("Saved")}
           onSignIn={() => setAuthOpen(true)}
           onSignOut={() => auth && signOut(auth)}
+          onViewSellerProfile={() =>
+            handleOpenSeller(
+              user?.displayName || user?.email || "You",
+              user?.uid,
+            )
+          }
         />
       )}
       <BottomNav
@@ -274,6 +290,24 @@ export default function App() {
         onSelectCategory={(cat) => {
           setCategory(cat);
           setTab("Explore");
+        }}
+        onOpenSeller={(seller, sellerId) => {
+          setSelected(null);
+          handleOpenSeller(seller, sellerId);
+        }}
+      />
+      <SellerProfileModal
+        visible={selectedSeller !== null}
+        seller={selectedSeller}
+        listings={items}
+        onClose={() => setSelectedSeller(null)}
+        onSelectListing={(listing) => {
+          setSelectedSeller(null);
+          setSelected(listing);
+        }}
+        onContactSeller={() => {
+          setSelectedSeller(null);
+          contactSeller();
         }}
       />
       <AuthModal
@@ -363,12 +397,14 @@ function ListingModal({
   onClose,
   onContact,
   onSelectCategory,
+  onOpenSeller,
 }: {
   item: Listing | null;
   user: User | null;
   onClose: () => void;
   onContact: () => void;
   onSelectCategory: (category: string) => void;
+  onOpenSeller: (seller: string, sellerId?: string) => void;
 }) {
   return (
     <Modal
@@ -399,9 +435,34 @@ function ListingModal({
               <Text style={styles.detailTitle}>{item.title}</Text>
               <Text style={styles.detailPrice}>${item.price}</Text>
               <Text style={styles.muted}>
-                {item.condition} · {item.campus} · {item.seller}
+                {item.condition} · {item.campus}
               </Text>
               <Text style={styles.description}>{item.description}</Text>
+
+              {/* Seller Profile Card */}
+              <Pressable
+                style={styles.detailSellerCard}
+                onPress={() => onOpenSeller(item.seller, item.sellerId)}
+              >
+                <View style={styles.detailSellerAvatar}>
+                  <Text style={styles.detailSellerInitials}>
+                    {item.seller.slice(0, 2).toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.detailSellerInfo}>
+                  <View style={styles.detailSellerNameRow}>
+                    <Text style={styles.detailSellerName}>{item.seller}</Text>
+                    <View style={styles.detailVerifiedTag}>
+                      <Text style={styles.detailVerifiedTagText}>✓ Student</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.detailSellerSub}>★ 4.9 · {item.campus}</Text>
+                </View>
+                <View style={styles.detailSellerAction}>
+                  <Text style={styles.detailSellerActionText}>Seller Profile →</Text>
+                </View>
+              </Pressable>
+
               <Pressable style={styles.primary} onPress={onContact}>
                 <Text style={styles.primaryText}>
                   {user
@@ -629,6 +690,74 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     marginVertical: 20,
+  },
+  detailSellerCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F2F7F3",
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#DBE7DD",
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  detailSellerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#D6E5D7",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  detailSellerInitials: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#1E5848",
+  },
+  detailSellerInfo: {
+    flex: 1,
+  },
+  detailSellerNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  detailSellerName: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#173C34",
+  },
+  detailVerifiedTag: {
+    backgroundColor: "#E6F3EC",
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  detailVerifiedTagText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#1E684E",
+  },
+  detailSellerSub: {
+    fontSize: 11,
+    color: "#74837B",
+    marginTop: 2,
+    fontWeight: "600",
+  },
+  detailSellerAction: {
+    backgroundColor: "#FFF",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#C5D8C9",
+  },
+  detailSellerActionText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#1F5D4C",
   },
   primary: {
     height: 50,
