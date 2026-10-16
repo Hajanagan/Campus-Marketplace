@@ -69,6 +69,8 @@ export default function App() {
   const [items, setItems] = useState(seedListings);
   const [queryText, setQueryText] = useState("");
   const [category, setCategory] = useState("All items");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [selected, setSelected] = useState<Listing | null>(null);
   const [user, setUser] = useState<User | null>(auth?.currentUser || null);
@@ -133,15 +135,30 @@ export default function App() {
     );
   }, []);
 
-  const filteredItems = useMemo(
-    () =>
-      items.filter(
-        (item) =>
-          (category === "All items" || item.category === category) &&
-          item.title.toLowerCase().includes(queryText.toLowerCase()),
-      ),
-    [category, items, queryText],
-  );
+  const filteredItems = useMemo(() => {
+    const parsedMin = minPrice.trim() !== "" ? Number(minPrice.trim()) : NaN;
+    const parsedMax = maxPrice.trim() !== "" ? Number(maxPrice.trim()) : NaN;
+    const hasMin = !isNaN(parsedMin);
+    const hasMax = !isNaN(parsedMax);
+    const isInvalidPriceRange = hasMin && hasMax && parsedMin > parsedMax;
+
+    return items.filter((item) => {
+      const matchesCategory =
+        category === "All items" || item.category === category;
+      const matchesQuery = item.title
+        .toLowerCase()
+        .includes(queryText.toLowerCase());
+
+      let matchesPrice = true;
+      if (!isInvalidPriceRange) {
+        const minBound = hasMin ? parsedMin : 0;
+        const maxBound = hasMax ? parsedMax : Infinity;
+        matchesPrice = item.price >= minBound && item.price <= maxBound;
+      }
+
+      return matchesCategory && matchesQuery && matchesPrice;
+    });
+  }, [category, items, queryText, minPrice, maxPrice]);
   const myListings = useMemo(
     () => (user ? items.filter((item) => item.sellerId === user.uid) : []),
     [items, user],
@@ -310,9 +327,17 @@ export default function App() {
           allItems={items}
           query={queryText}
           category={category}
+          minPrice={minPrice}
+          maxPrice={maxPrice}
           savedIds={savedIds}
           onQueryChange={setQueryText}
           onCategoryChange={setCategory}
+          onMinPriceChange={setMinPrice}
+          onMaxPriceChange={setMaxPrice}
+          onClearPriceFilters={() => {
+            setMinPrice("");
+            setMaxPrice("");
+          }}
           onSave={toggleSaved}
           onOpen={setSelected}
           onProfile={() => setTab("Profile")}

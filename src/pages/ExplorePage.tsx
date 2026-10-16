@@ -16,9 +16,14 @@ export function ExplorePage({
   allItems = [],
   query,
   category,
+  minPrice,
+  maxPrice,
   savedIds,
   onQueryChange,
   onCategoryChange,
+  onMinPriceChange,
+  onMaxPriceChange,
+  onClearPriceFilters,
   onSave,
   onOpen,
   onProfile,
@@ -27,9 +32,14 @@ export function ExplorePage({
   allItems?: Listing[];
   query: string;
   category: string;
+  minPrice: string;
+  maxPrice: string;
   savedIds: string[];
   onQueryChange: (value: string) => void;
   onCategoryChange: (value: string) => void;
+  onMinPriceChange: (value: string) => void;
+  onMaxPriceChange: (value: string) => void;
+  onClearPriceFilters: () => void;
   onSave: (id: string) => void;
   onOpen: (item: Listing) => void;
   onProfile: () => void;
@@ -43,6 +53,12 @@ export function ExplorePage({
   };
 
   const selectedCategoryObj = CATEGORIES.find((c) => c.name === category);
+
+  const parsedMin = minPrice.trim() !== "" ? Number(minPrice.trim()) : NaN;
+  const parsedMax = maxPrice.trim() !== "" ? Number(maxPrice.trim()) : NaN;
+  const isPriceError =
+    !isNaN(parsedMin) && !isNaN(parsedMax) && parsedMin > parsedMax;
+  const hasPriceFilter = minPrice.trim() !== "" || maxPrice.trim() !== "";
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -71,6 +87,41 @@ export function ExplorePage({
             <Text style={styles.clearSearchText}>✕</Text>
           </Pressable>
         ) : null}
+      </View>
+
+      <View style={styles.priceContainer}>
+        <View style={styles.priceRow}>
+          <TextInput
+            value={minPrice}
+            onChangeText={onMinPriceChange}
+            placeholder="Min price"
+            placeholderTextColor="#87918C"
+            keyboardType="numeric"
+            style={styles.priceInput}
+          />
+          <Text style={styles.priceDash}>–</Text>
+          <TextInput
+            value={maxPrice}
+            onChangeText={onMaxPriceChange}
+            placeholder="Max price"
+            placeholderTextColor="#87918C"
+            keyboardType="numeric"
+            style={styles.priceInput}
+          />
+          {hasPriceFilter && (
+            <Pressable
+              onPress={onClearPriceFilters}
+              style={styles.clearPriceBtn}
+            >
+              <Text style={styles.clearPriceText}>Clear filters</Text>
+            </Pressable>
+          )}
+        </View>
+        {isPriceError && (
+          <Text style={styles.priceErrorText}>
+            Min price cannot be greater than max price
+          </Text>
+        )}
       </View>
 
       <View style={styles.section}>
@@ -330,5 +381,49 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   emptyResetBtnText: { color: "#FFF", fontWeight: "800", fontSize: 12 },
+  priceContainer: {
+    marginTop: 12,
+  },
+  priceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  priceInput: {
+    flex: 1,
+    height: 44,
+    backgroundColor: "#FFF",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#E6E9E2",
+    color: "#173C34",
+    fontSize: 13,
+  },
+  priceDash: {
+    color: "#87918C",
+    fontWeight: "700",
+  },
+  clearPriceBtn: {
+    height: 44,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    backgroundColor: "#FFF",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E6E9E2",
+  },
+  clearPriceText: {
+    color: "#C3535B",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  priceErrorText: {
+    color: "#C3535B",
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 6,
+  },
 });
 
