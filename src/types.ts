@@ -9,6 +9,8 @@ export type Listing = {
   condition: string;
   image: string;
   description?: string;
+  status?: "available" | "sold";
 };
+
 
 export type Tab = "Explore" | "Saved" | "Messages" | "Profile" | "MyListings";

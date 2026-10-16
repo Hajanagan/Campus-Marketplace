@@ -20,6 +20,8 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
+
 } from "firebase/firestore";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -179,29 +181,116 @@ export default function App() {
       Alert.alert("Google sign-in failed", code);
     }
   };
+
+  const markAsSold = (id: string) => {
+    Alert.alert(
+      "Mark as sold",
+      "Are you sure you want to mark this item as sold?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Mark as sold",
+          onPress: async () => {
+            try {
+              if (!db) {
+                throw new Error("Database not connected");
+              }
+              await updateDoc(doc(db, "listings", id), { status: "sold" });
+              setItems((current) =>
+                current.map((item) =>
+                  item.id === id ? { ...item, status: "sold" } : item,
+                ),
+              );
+              setSelected(null);
+            } catch (error) {
+              const message =
+                error instanceof Error
+                  ? error.message
+                  : "Failed to mark as sold.";
+              Alert.alert("Error", message);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const publish = async (
-    title: string,
-    price: string,
-    listingCategory: string,
+    titleOrData:
+      | string
+      | {
+          title: string;
+          price: string | number;
+          category?: string;
+          description?: string;
+          condition?: string;
+          image?: string;
+        },
+    priceArg?: string | number,
+    categoryArg?: string,
+    descriptionArg?: string,
+    conditionArg?: string,
+    imageArg?: string,
   ) => {
     if (!user) {
       setSellOpen(false);
       setAuthOpen(true);
       return;
     }
-    await addDoc(collection(db!, "listings"), {
-      title,
-      price: Number(price),
-      category: listingCategory,
-      seller: user.displayName || user.email || "You",
-      sellerId: user.uid,
-      campus: "North Campus",
-      condition: "Good condition",
-      image: seedListings[0].image,
-      description: "New listing from a campus seller.",
-      createdAt: serverTimestamp(),
-    });
-    setSellOpen(false);
+
+    let title = "";
+    let price: string | number = "";
+    let category = "Textbooks";
+    let description = "";
+    let condition = "Good condition";
+    let image = "";
+
+    if (typeof titleOrData === "object" && titleOrData !== null) {
+      title = titleOrData.title || "";
+      price = titleOrData.price ?? "";
+      category = titleOrData.category || "Textbooks";
+      description = titleOrData.description || "";
+      condition = titleOrData.condition || "Good condition";
+      image = titleOrData.image || "";
+    } else {
+      title = titleOrData || "";
+      price = priceArg ?? "";
+      category = categoryArg || "Textbooks";
+      description = descriptionArg || "";
+      condition = conditionArg || "Good condition";
+      image = imageArg || "";
+    }
+
+    const trimmedTitle = String(title).trim();
+    const trimmedCategory = String(category).trim();
+    const trimmedDescription = String(description).trim();
+    const trimmedCondition = String(condition).trim() || "Good condition";
+    const trimmedImage = String(image).trim();
+    const finalImage = trimmedImage || seedListings[0].image;
+
+    try {
+      if (!db) {
+        throw new Error("Database not connected");
+      }
+      await addDoc(collection(db, "listings"), {
+        title: trimmedTitle,
+        price: Number(price),
+        category: trimmedCategory,
+        seller: user.displayName || user.email || "You",
+        sellerId: user.uid,
+        campus: "North Campus",
+        condition: trimmedCondition,
+        image: finalImage,
+        description: trimmedDescription,
+        status: "available",
+        createdAt: serverTimestamp(),
+      });
+      setSellOpen(false);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to publish listing.";
+      Alert.alert("Error", message);
+    }
   };
   const contactSeller = () => {
     if (!user) {
@@ -271,6 +360,7 @@ export default function App() {
         user={user}
         onClose={() => setSelected(null)}
         onContact={contactSeller}
+        onMarkSold={markAsSold}
         onSelectCategory={(cat) => {
           setCategory(cat);
           setTab("Explore");
@@ -362,6 +452,7 @@ function ListingModal({
   user,
   onClose,
   onContact,
+  onMarkSold,
   onSelectCategory,
 }: {
   item: Listing | null;
@@ -369,6 +460,7 @@ function ListingModal({
   onClose: () => void;
   onContact: () => void;
   onSelectCategory: (category: string) => void;
+  onMarkSold: (id: string) => void;  
 }) {
   return (
     <Modal
@@ -401,14 +493,29 @@ function ListingModal({
               <Text style={styles.muted}>
                 {item.condition} · {item.campus} · {item.seller}
               </Text>
-              <Text style={styles.description}>{item.description}</Text>
-              <Pressable style={styles.primary} onPress={onContact}>
-                <Text style={styles.primaryText}>
-                  {user
-                    ? `Message ${item.seller}`
-                    : "Sign in to contact seller"}
-                </Text>
-              </Pressable>
+              {item.description ? (
+                <Text style={styles.description}>{item.description}</Text>
+              ) : null}
+              {item.status === "sold" ? (
+                <View style={styles.soldLabel}>
+                  <Text style={styles.soldLabelText}>SOLD</Text>
+                </View>
+              ) : user && item.sellerId === user.uid ? (
+                <Pressable
+                  style={styles.primary}
+                  onPress={() => onMarkSold(item.id)}
+                >
+                  <Text style={styles.primaryText}>Mark as sold</Text>
+                </Pressable>
+              ) : (
+                <Pressable style={styles.primary} onPress={onContact}>
+                  <Text style={styles.primaryText}>
+                    {user
+                      ? `Message ${item.seller}`
+                      : "Sign in to contact seller"}
+                  </Text>
+                </Pressable>
+              )}
             </View>
           </View>
         </View>
@@ -449,6 +556,13 @@ function AuthModal({
     </Modal>
   );
 }
+const CONDITIONS = [
+  "Brand new",
+  "Like new",
+  "Good condition",
+  "Fair",
+] as const;
+
 function SellModal({
   visible,
   onClose,
@@ -456,16 +570,87 @@ function SellModal({
 }: {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (title: string, price: string, category: string) => Promise<void>;
+  onSubmit: (
+    title: string,
+    price: string,
+    category: string,
+    description: string,
+    condition: string,
+    image?: string,
+  ) => Promise<void>;
 }) {
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
   const [category, setCategory] = useState("Textbooks");
+  const [description, setDescription] = useState("");
+  const [condition, setCondition] = useState<string>("Good condition");
+  const [image, setImage] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!visible) {
+      setTitle("");
+      setPrice("");
+      setCategory("Textbooks");
+      setDescription("");
+      setCondition("Good condition");
+      setImage("");
+      setError("");
+      setSubmitting(false);
+    }
+  }, [visible]);
 
   const selectableCategories = CATEGORIES.filter((c) => c.name !== "All items");
 
+  const handleSubmit = async () => {
+    setError("");
+
+    if (title.trim().length < 3) {
+      setError("Title must be at least 3 characters.");
+      return;
+    }
+
+    const numPrice = Number(price.trim());
+    if (!price.trim() || isNaN(numPrice) || numPrice <= 0) {
+      setError("Price must be greater than 0.");
+      return;
+    }
+
+    if (description.trim().length < 10) {
+      setError("Description must be at least 10 characters.");
+      return;
+    }
+
+    const trimmedImage = image.trim();
+    if (
+      trimmedImage &&
+      !trimmedImage.startsWith("http://") &&
+      !trimmedImage.startsWith("https://") &&
+      !trimmedImage.startsWith("http") &&
+      !trimmedImage.startsWith("https")
+    ) {
+      setError("Image URL must start with http or https.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      await onSubmit(title, price, category, description, condition, image);
+    } catch {
+      // Handled in onSubmit
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
-    <Modal visible={visible} transparent animationType="slide">
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
       <View style={styles.backdrop}>
         <View style={styles.form}>
           <View style={styles.formHeader}>
@@ -474,57 +659,119 @@ function SellModal({
               <Text style={styles.closeText}>×</Text>
             </Pressable>
           </View>
-          <Text style={styles.label}>What are you selling?</Text>
-          <TextInput
-            value={title}
-            onChangeText={setTitle}
-            placeholder="e.g. Organic Chemistry textbook"
-            style={styles.field}
-          />
-          <Text style={styles.label}>Price ($)</Text>
-          <TextInput
-            value={price}
-            onChangeText={setPrice}
-            keyboardType="numeric"
-            placeholder="0"
-            style={styles.field}
-          />
-
-          <Text style={styles.label}>Select Category</Text>
           <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.sellCategories}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.formScroll}
           >
-            {selectableCategories.map((cat) => (
-              <Pressable
-                key={cat.name}
-                onPress={() => setCategory(cat.name)}
-                style={[
-                  styles.sellCategoryOption,
-                  category === cat.name && styles.sellCategoryActive,
-                ]}
-              >
-                <Text style={styles.sellCategoryIcon}>{cat.icon}</Text>
-                <Text
+            <Text style={styles.label}>What are you selling?</Text>
+            <TextInput
+              value={title}
+              onChangeText={setTitle}
+              placeholder="e.g. Organic Chemistry textbook"
+              placeholderTextColor="#87918C"
+              style={styles.field}
+            />
+
+            <Text style={styles.label}>Price ($)</Text>
+            <TextInput
+              value={price}
+              onChangeText={setPrice}
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor="#87918C"
+              style={styles.field}
+            />
+
+            <Text style={styles.label}>Description</Text>
+            <TextInput
+              value={description}
+              onChangeText={setDescription}
+              placeholder="Describe condition, pickup details (at least 10 chars)..."
+              placeholderTextColor="#87918C"
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+              style={[styles.field, styles.multilineField]}
+            />
+
+            <Text style={styles.label}>Select Category</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.sellCategories}
+            >
+              {selectableCategories.map((cat) => (
+                <Pressable
+                  key={cat.name}
+                  onPress={() => setCategory(cat.name)}
                   style={[
-                    styles.sellCategoryText,
-                    category === cat.name && styles.sellCategoryTextActive,
+                    styles.sellCategoryOption,
+                    category === cat.name && styles.sellCategoryActive,
                   ]}
                 >
-                  {cat.name}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
+                  <Text style={styles.sellCategoryIcon}>{cat.icon}</Text>
+                  <Text
+                    style={[
+                      styles.sellCategoryText,
+                      category === cat.name && styles.sellCategoryTextActive,
+                    ]}
+                  >
+                    {cat.name}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
 
-          <Pressable
-            disabled={!title || !price}
-            style={[styles.primary, (!title || !price) && styles.disabled]}
-            onPress={() => onSubmit(title, price, category)}
-          >
-            <Text style={styles.primaryText}>Publish listing</Text>
-          </Pressable>
+            <Text style={styles.label}>Condition</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.sellCategories}
+            >
+              {CONDITIONS.map((cond) => (
+                <Pressable
+                  key={cond}
+                  onPress={() => setCondition(cond)}
+                  style={[
+                    styles.sellCategoryOption,
+                    condition === cond && styles.sellCategoryActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.sellCategoryText,
+                      condition === cond && styles.sellCategoryTextActive,
+                    ]}
+                  >
+                    {cond}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+
+            <Text style={styles.label}>Image URL (optional)</Text>
+            <TextInput
+              value={image}
+              onChangeText={setImage}
+              placeholder="https://..."
+              placeholderTextColor="#87918C"
+              autoCapitalize="none"
+              keyboardType="url"
+              style={styles.field}
+            />
+
+            {error ? <Text style={styles.authError}>{error}</Text> : null}
+
+            <Pressable
+              disabled={submitting}
+              style={[styles.primary, submitting && styles.disabled]}
+              onPress={handleSubmit}
+            >
+              <Text style={styles.primaryText}>
+                {submitting ? "Publishing..." : "Publish listing"}
+              </Text>
+            </Pressable>
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -639,12 +886,32 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   primaryText: { color: "#FFF", fontWeight: "800" },
+  soldLabel: {
+    height: 50,
+    backgroundColor: "#FBECEE",
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 24,
+    borderWidth: 1,
+    borderColor: "#F5C2C7",
+  },
+  soldLabelText: {
+    color: "#C3535B",
+    fontWeight: "800",
+    fontSize: 14,
+    letterSpacing: 1.5,
+  },
   auth: { backgroundColor: "#FFF", borderRadius: 20, padding: 24, margin: 20 },
   form: {
     backgroundColor: "#FFF",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
+    maxHeight: "90%",
+  },
+  formScroll: {
+    paddingBottom: 24,
   },
   formHeader: {
     flexDirection: "row",
@@ -697,6 +964,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 14,
     color: "#173C34",
+  },
+  multilineField: {
+    height: 80,
+    paddingTop: 12,
+    paddingBottom: 12,
   },
   sellCategories: {
     gap: 8,
