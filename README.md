@@ -160,6 +160,3 @@ firebase deploy --only firestore:rules
 This project is licensed under the terms of the [LICENSE](./LICENSE) file included in this repository.
 
 ---
-
-<p align="center">@2026 Made with ❤️ for campus communities</p>
-
