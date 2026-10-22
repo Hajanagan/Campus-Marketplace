@@ -1,6 +1,7 @@
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { getCategoryIcon } from "../data";
 import { Listing } from "../types";
+import { Currency, formatListingPrice } from "../currency";
 
 export function ListingCard({
   item,
@@ -8,12 +9,16 @@ export function ListingCard({
   onSave,
   onOpen,
   onCategorySelect,
+  currency,
+  exchangeRate,
 }: {
   item: Listing;
   saved: boolean;
   onSave: () => void;
   onOpen: () => void;
   onCategorySelect?: (category: string) => void;
+  currency: Currency;
+  exchangeRate: string;
 }) {
   const categoryIcon = getCategoryIcon(item.category);
 
@@ -54,7 +59,9 @@ export function ListingCard({
           <Text style={styles.title} numberOfLines={2}>
             {item.title}
           </Text>
-          <Text style={styles.price}>${item.price}</Text>
+          <Text style={styles.price}>
+            {formatListingPrice(item.price, currency, exchangeRate)}
+          </Text>
         </View>
         <Text style={styles.muted}>
           {item.condition} · {item.campus}

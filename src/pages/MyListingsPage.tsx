@@ -3,14 +3,19 @@ import { EmptyState } from "../components/EmptyState";
 import { ListingCard } from "../components/ListingCard";
 import { PageTitle } from "../components/PageTitle";
 import { Listing } from "../types";
+import { Currency } from "../currency";
 export function MyListingsPage({
   items,
   onOpen,
   onSell,
+  currency,
+  exchangeRate,
 }: {
   items: Listing[];
   onOpen: (item: Listing) => void;
   onSell: () => void;
+  currency: Currency;
+  exchangeRate: string;
 }) {
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -39,6 +44,8 @@ export function MyListingsPage({
             saved={false}
             onSave={() => undefined}
             onOpen={() => onOpen(item)}
+            currency={currency}
+            exchangeRate={exchangeRate}
           />
         )}
       />
