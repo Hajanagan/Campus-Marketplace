@@ -39,3 +39,13 @@ The client Firebase configuration is intentionally public. Access control belong
 - Publish a basic listing through the Sell flow.
 - Sign in anonymously for a frictionless student account.
 - View Saved, Messages, and Profile pages.
+
+
+
+
+
+
+
+
+
+MIT Lisence
