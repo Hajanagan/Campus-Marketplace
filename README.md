@@ -11,7 +11,6 @@ Built with **React Native + Expo SDK 57**, backed by **Firebase** (Firestore + G
 | Feature | Description |
 |---|---|
 | 🔍 **Explore** | Browse and search listings with category filters |
-| 📌 **Save Listings** | Bookmark items to revisit later |
 | 💬 **Messaging** | Start conversations directly with sellers |
 | 📦 **Sell** | Publish listings with title, price, category, condition & image |
 | 👤 **Profile** | View your profile and manage your listings |
@@ -162,5 +161,5 @@ This project is licensed under the terms of the [LICENSE](./LICENSE) file includ
 
 ---
 
-<p align="center">Made with ❤️ for campus communities</p>
+<p align="center">@2026 Made with ❤️ for campus communities</p>
 
