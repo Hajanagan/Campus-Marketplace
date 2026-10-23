@@ -4,8 +4,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
+import { useEffect, useState } from "react";
 import { User } from "firebase/auth";
 import { PageTitle } from "../components/PageTitle";
 import { CurrencyConverter } from "../components/CurrencyConverter";
@@ -13,6 +15,8 @@ import { Currency } from "../currency";
 
 export function ProfilePage({
   user,
+  username,
+  profilePhotoURL,
   savedCount,
   listingCount,
   firebaseConfigured,
@@ -26,8 +30,12 @@ export function ProfilePage({
   onSaved,
   onSignIn,
   onSignOut,
+  onUsernameChange,
+  onUploadPhoto,
 }: {
   user: User | null;
+  username: string;
+  profilePhotoURL: string | null;
   savedCount: number;
   listingCount: number;
   firebaseConfigured: boolean;
@@ -41,9 +49,16 @@ export function ProfilePage({
   onSaved: () => void;
   onSignIn: () => void;
   onSignOut: () => void;
+  onUsernameChange: (username: string) => Promise<void>;
+  onUploadPhoto: () => Promise<void>;
 }) {
-  const name =
-    user?.displayName || user?.email?.split("@")[0] || "Campus guest";
+  const [editedUsername, setEditedUsername] = useState(username);
+  const [profileError, setProfileError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => setEditedUsername(username), [username]);
+
+  const name = user ? username : "Campus guest";
 
   const initials = name
     .split(/\s+/)
@@ -66,9 +81,9 @@ export function ProfilePage({
       {/* Seller profile card */}
       <View style={styles.hero}>
         <View style={styles.avatarWrapper}>
-          {user?.photoURL ? (
+          {profilePhotoURL ? (
             <Image
-              source={{ uri: user.photoURL }}
+              source={{ uri: profilePhotoURL }}
               style={styles.avatar}
             />
           ) : (
@@ -87,6 +102,64 @@ export function ProfilePage({
         </View>
 
         <Text style={styles.name}>{name}</Text>
+        {user ? (
+          <>
+            <TextInput
+              value={editedUsername}
+              onChangeText={setEditedUsername}
+              placeholder="Your username"
+              style={styles.usernameInput}
+              autoCapitalize="none"
+            />
+            <View style={styles.profileActions}>
+              <Pressable
+                style={styles.secondaryButton}
+                disabled={saving}
+                onPress={async () => {
+                  setSaving(true);
+                  setProfileError("");
+                  try {
+                    await onUsernameChange(editedUsername);
+                  } catch (saveError) {
+                    setProfileError(
+                      saveError instanceof Error
+                        ? saveError.message
+                        : "Could not save username.",
+                    );
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+              >
+                <Text style={styles.secondaryButtonText}>
+                  {saving ? "Saving..." : "Save username"}
+                </Text>
+              </Pressable>
+              <Pressable
+                style={styles.secondaryButton}
+                disabled={saving}
+                onPress={async () => {
+                  setSaving(true);
+                  setProfileError("");
+                  try {
+                    await onUploadPhoto();
+                  } catch (uploadError) {
+                    setProfileError(
+                      uploadError instanceof Error
+                        ? uploadError.message
+                        : "Could not upload image.",
+                    );
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+              >
+                <Text style={styles.secondaryButtonText}>Upload photo</Text>
+              </Pressable>
+            </View>
+          </>
+        ) : null}
+        {profileError ? <Text style={styles.error}>{profileError}</Text> : null}
 
         <Text style={styles.email}>
           {user?.email || "Sign in to sell and message"}
@@ -327,6 +400,34 @@ const styles = StyleSheet.create({
     fontSize: 25,
     fontWeight: "800",
     textAlign: "center",
+  },
+  usernameInput: {
+    width: "100%",
+    maxWidth: 320,
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#D8E9DD",
+    textAlign: "center",
+    color: "#183F32",
+  },
+  profileActions: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 10,
+  },
+  secondaryButton: {
+    borderRadius: 12,
+    backgroundColor: "#EEF6F0",
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  secondaryButtonText: {
+    color: "#205B45",
+    fontWeight: "700",
+    fontSize: 12,
   },
   email: {
     color: "#7C8981",

@@ -2,18 +2,22 @@ import { StatusBar } from "expo-status-bar";
 import {
   GoogleAuthProvider,
   browserLocalPersistence,
+  createUserWithEmailAndPassword,
   getRedirectResult,
   onAuthStateChanged,
   setPersistence,
+  signInWithEmailAndPassword,
   signInAnonymously,
   signInWithPopup,
   signInWithRedirect,
   signOut,
+  updateProfile,
   User,
 } from "firebase/auth";
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   onSnapshot,
   orderBy,
@@ -21,8 +25,9 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
-
 } from "firebase/firestore";
+import { launchImageLibraryAsync, MediaTypeOptions } from "expo-image-picker";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -44,7 +49,7 @@ import { MyListingsPage } from "./pages/MyListingsPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { SavedPage } from "./pages/SavedPage";
 import { CATEGORIES, getCategoryIcon, seedListings } from "./data";
-import { auth, db, firebaseConfigured } from "./firebase";
+import { auth, db, firebaseConfigured, storage } from "./firebase";
 import { Listing, Tab } from "./types";
 import { convertUsdPrice, Currency, formatListingPrice, getExchangeRate } from "./currency";
 
@@ -81,12 +86,18 @@ export default function App() {
   const [sellOpen, setSellOpen] = useState(false);
   const [authError, setAuthError] = useState("");
   const [profileReady, setProfileReady] = useState(false);
+  const [username, setUsername] = useState("");
+  const [profilePhotoURL, setProfilePhotoURL] = useState<string | null>(null);
 
   useEffect(() => {
     const firebaseAuth = auth;
     if (!firebaseAuth) return;
     const handleUser = (nextUser: User | null) => {
       setUser(nextUser);
+      setUsername(
+        nextUser?.displayName || nextUser?.email?.split("@")[0] || "Campus student",
+      );
+      setProfilePhotoURL(nextUser?.photoURL || null);
       if (nextUser)
         registerUser(nextUser)
           .then(() => setProfileReady(true))
@@ -100,14 +111,16 @@ export default function App() {
       else setProfileReady(false);
     };
     let unsubscribe: () => void = () => undefined;
-    setPersistence(firebaseAuth, browserLocalPersistence)
-      .then(() => {
-        unsubscribe = onAuthStateChanged(firebaseAuth, handleUser);
-        return getRedirectResult(firebaseAuth);
-      })
-      .then((result) => {
+    const initializeAuth = async () => {
+      // browserLocalPersistence is only supported by Firebase's web auth layer.
+      if (Platform.OS === "web") {
+        await setPersistence(firebaseAuth, browserLocalPersistence);
+        const result = await getRedirectResult(firebaseAuth);
         if (result?.user) handleUser(result.user);
-      })
+      }
+      unsubscribe = onAuthStateChanged(firebaseAuth, handleUser);
+    };
+    initializeAuth()
       .catch((error) =>
         setAuthError(
           error instanceof Error
@@ -117,6 +130,25 @@ export default function App() {
       );
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!db || !user) {
+      setSavedIds([]);
+      return;
+    }
+
+    const savedCollection = collection(db, "users", user.uid, "saved");
+    return onSnapshot(
+      savedCollection,
+      (snapshot) => setSavedIds(snapshot.docs.map((entry) => entry.id)),
+      (error) => {
+        setSavedIds([]);
+        setAuthError(
+          error instanceof Error ? error.message : "Could not load saved items.",
+        );
+      },
+    );
+  }, [user]);
 
   useEffect(() => {
     if (!db) return;
@@ -171,12 +203,32 @@ export default function App() {
     () => (user ? items.filter((item) => item.sellerId === user.uid) : []),
     [items, user],
   );
-  const toggleSaved = (id: string) =>
-    setSavedIds((current) =>
-      current.includes(id)
-        ? current.filter((value) => value !== id)
-        : [...current, id],
-    );
+  const toggleSaved = async (id: string) => {
+    if (!user) {
+      setAuthOpen(true);
+      return;
+    }
+    if (!db) {
+      Alert.alert("Error", "Database not connected.");
+      return;
+    }
+
+    const savedRef = doc(db, "users", user.uid, "saved", id);
+    try {
+      if (savedIds.includes(id)) {
+        await deleteDoc(savedRef);
+      } else {
+        await setDoc(savedRef, {
+          listingId: id,
+          savedAt: serverTimestamp(),
+        });
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Could not update saved item.";
+      Alert.alert("Error", message);
+    }
+  };
   const signInWithGoogle = async () => {
     if (!auth) return;
     setAuthError("");
@@ -205,6 +257,37 @@ export default function App() {
       setAuthError(code);
       Alert.alert("Google sign-in failed", code);
     }
+  };
+
+  const signInWithEmail = async (email: string, password: string) => {
+    if (!auth) throw new Error("Firebase authentication is not configured.");
+    const result = await signInWithEmailAndPassword(auth, email.trim(), password);
+    await registerUser(result.user);
+    setUser(result.user);
+    setProfileReady(true);
+    setAuthOpen(false);
+  };
+
+  const signUpWithEmail = async (
+    email: string,
+    password: string,
+    usernameValue: string,
+  ) => {
+    if (!auth) throw new Error("Firebase authentication is not configured.");
+    const trimmedEmail = email.trim();
+    const trimmedUsername =
+      usernameValue.trim() || trimmedEmail.split("@")[0] || "Campus student";
+    const result = await createUserWithEmailAndPassword(
+      auth,
+      trimmedEmail,
+      password,
+    );
+    await updateProfile(result.user, { displayName: trimmedUsername });
+    await registerUser(result.user);
+    setUser(result.user);
+    setUsername(trimmedUsername);
+    setProfileReady(true);
+    setAuthOpen(false);
   };
 
   const markAsSold = (id: string) => {
@@ -343,13 +426,109 @@ export default function App() {
       Alert.alert("Error", message);
     }
   };
-  const contactSeller = () => {
+  const contactSeller = async (listing: Listing) => {
     if (!user) {
       setAuthOpen(true);
       return;
     }
+    if (!db || !listing.sellerId) {
+      Alert.alert("Error", "This seller is not available for messaging.");
+      return;
+    }
+    const memberIds = [user.uid, listing.sellerId].sort();
+    const conversationId = `${listing.id}_${memberIds.join("_")}`;
+    try {
+      await setDoc(
+        doc(db, "conversations", conversationId),
+        {
+          memberIds,
+          memberUsernames: {
+            [user.uid]: username,
+            [listing.sellerId]: listing.seller,
+          },
+          listingId: listing.id,
+          listingTitle: listing.title,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+    } catch (error) {
+      Alert.alert(
+        "Could not start conversation",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+      return;
+    }
     setSelected(null);
     setTab("Messages");
+  };
+
+  const updateUsername = async (nextUsername: string) => {
+    const trimmed = nextUsername.trim();
+    if (!user || !db || trimmed.length < 2) {
+      throw new Error("Username must be at least 2 characters.");
+    }
+    await updateProfile(user, { displayName: trimmed });
+    await setDoc(
+      doc(db, "users", user.uid),
+      { displayName: trimmed, username: trimmed, updatedAt: serverTimestamp() },
+      { merge: true },
+    );
+    setUsername(trimmed);
+    setUser({ ...user });
+  };
+
+  const uploadProfileImage = async () => {
+    if (!user || !storage || !db) {
+      throw new Error("Please sign in before uploading a profile image.");
+    }
+    const result = await launchImageLibraryAsync({
+      mediaTypes: MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets[0]?.uri) return;
+    const asset = result.assets[0];
+    const response = await fetch(asset.uri);
+    const blob = await response.blob();
+    const imageRef = ref(storage, `profile-images/${user.uid}/${Date.now()}.jpg`);
+    await uploadBytes(imageRef, blob, {
+      contentType: asset.mimeType || "image/jpeg",
+    });
+    const downloadURL = await getDownloadURL(imageRef);
+    await updateProfile(user, { photoURL: downloadURL });
+    await setDoc(
+      doc(db, "users", user.uid),
+      { photoURL: downloadURL, updatedAt: serverTimestamp() },
+      { merge: true },
+    );
+    setProfilePhotoURL(downloadURL);
+    setUser({ ...user });
+  };
+
+  const uploadListingImage = async () => {
+    if (!user || !storage) {
+      throw new Error("Please sign in before uploading a product image.");
+    }
+    const result = await launchImageLibraryAsync({
+      mediaTypes: MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets[0]?.uri) return null;
+    const asset = result.assets[0];
+    const response = await fetch(asset.uri);
+    const blob = await response.blob();
+    const imageRef = ref(
+      storage,
+      `listing-images/${user.uid}/${Date.now()}-${asset.fileName || "product-image.jpg"}`,
+    );
+    await uploadBytes(imageRef, blob, {
+      contentType: asset.mimeType || "image/jpeg",
+    });
+    return getDownloadURL(imageRef);
   };
 
   return (
@@ -391,7 +570,11 @@ export default function App() {
         />
       )}
       {tab === "Messages" && (
-        <MessagesPage onBrowse={() => setTab("Explore")} />
+        <MessagesPage
+          userId={user?.uid || null}
+          username={username}
+          onBrowse={() => setTab("Explore")}
+        />
       )}
       {tab === "MyListings" && (
         <MyListingsPage
@@ -405,6 +588,8 @@ export default function App() {
       {tab === "Profile" && (
         <ProfilePage
           user={user}
+          username={username}
+          profilePhotoURL={profilePhotoURL}
           savedCount={savedIds.length}
           listingCount={myListings.length}
           firebaseConfigured={firebaseConfigured}
@@ -418,6 +603,8 @@ export default function App() {
           onSaved={() => setTab("Saved")}
           onSignIn={() => setAuthOpen(true)}
           onSignOut={() => auth && signOut(auth)}
+          onUsernameChange={updateUsername}
+          onUploadPhoto={uploadProfileImage}
         />
       )}
       <BottomNav
@@ -443,6 +630,8 @@ export default function App() {
         visible={authOpen}
         onClose={() => setAuthOpen(false)}
         onSignIn={signInWithGoogle}
+        onEmailSignIn={signInWithEmail}
+        onEmailSignUp={signUpWithEmail}
         error={authError}
       />
       <SellModal
@@ -536,7 +725,7 @@ function ListingModal({
   currency: Currency;
   exchangeRate: string;
   onClose: () => void;
-  onContact: () => void;
+  onContact: (item: Listing) => void;
   onSelectCategory: (category: string) => void;
   onMarkSold: (id: string) => void;  
 }) {
@@ -588,7 +777,7 @@ function ListingModal({
                   <Text style={styles.primaryText}>Mark as sold</Text>
                 </Pressable>
               ) : (
-                <Pressable style={styles.primary} onPress={onContact}>
+                <Pressable style={styles.primary} onPress={() => onContact(item)}>
                   <Text style={styles.primaryText}>
                     {user
                       ? `Message ${item.seller}`
@@ -607,23 +796,145 @@ function AuthModal({
   visible,
   onClose,
   onSignIn,
+  onEmailSignIn,
+  onEmailSignUp,
   error,
 }: {
   visible: boolean;
   onClose: () => void;
   onSignIn: () => Promise<void>;
+  onEmailSignIn: (email: string, password: string) => Promise<void>;
+  onEmailSignUp: (
+    email: string,
+    password: string,
+    username: string,
+  ) => Promise<void>;
   error: string;
 }) {
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
+  const [formError, setFormError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!visible) {
+      setMode("signin");
+      setEmail("");
+      setPassword("");
+      setUsername("");
+      setFormError("");
+      setSubmitting(false);
+    }
+  }, [visible]);
+
+  const submitEmailAuth = async () => {
+    setFormError("");
+    if (!email.trim() || !email.includes("@")) {
+      setFormError("Enter a valid email address.");
+      return;
+    }
+    if (password.length < 6) {
+      setFormError("Password must be at least 6 characters.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      if (mode === "signup") {
+        await onEmailSignUp(email, password, username);
+      } else {
+        await onEmailSignIn(email, password);
+      }
+    } catch (authSubmitError) {
+      const code =
+        authSubmitError &&
+        typeof authSubmitError === "object" &&
+        "code" in authSubmitError
+          ? String(authSubmitError.code)
+          : "";
+      const message =
+        code === "auth/email-already-in-use"
+          ? "This email is already registered. Please sign in."
+          : code === "auth/invalid-credential"
+            ? "Incorrect email or password."
+            : authSubmitError instanceof Error
+              ? authSubmitError.message
+              : "Authentication failed.";
+      setFormError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.backdrop}>
         <View style={styles.auth}>
-          <Text style={styles.formTitle}>Welcome to campus marketplace</Text>
+          <Text style={styles.formTitle}>
+            {mode === "signin" ? "Welcome back" : "Create your account"}
+          </Text>
           <Text style={styles.authMessage}>
             Sign in to save listings, message sellers, and publish your own
             items.
           </Text>
-          {error ? <Text style={styles.authError}>{error}</Text> : null}
+          {error || formError ? (
+            <Text style={styles.authError}>{formError || error}</Text>
+          ) : null}
+          {mode === "signup" ? (
+            <>
+              <Text style={styles.authLabel}>Username (optional)</Text>
+              <TextInput
+                value={username}
+                onChangeText={setUsername}
+                placeholder="Leave blank to use your email name"
+                autoCapitalize="none"
+                style={styles.authInput}
+              />
+            </>
+          ) : null}
+          <Text style={styles.authLabel}>Email</Text>
+          <TextInput
+            value={email}
+            onChangeText={setEmail}
+            placeholder="you@example.com"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            style={styles.authInput}
+          />
+          <Text style={styles.authLabel}>Password</Text>
+          <TextInput
+            value={password}
+            onChangeText={setPassword}
+            placeholder="At least 6 characters"
+            secureTextEntry
+            style={styles.authInput}
+          />
+          <Pressable
+            disabled={submitting}
+            style={[styles.primary, submitting && styles.disabled]}
+            onPress={submitEmailAuth}
+          >
+            <Text style={styles.primaryText}>
+              {submitting
+                ? "Please wait..."
+                : mode === "signin"
+                  ? "Sign in with email"
+                  : "Create account"}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              setMode(mode === "signin" ? "signup" : "signin");
+              setFormError("");
+            }}
+          >
+            <Text style={styles.authSwitch}>
+              {mode === "signin"
+                ? "New here? Create an account"
+                : "Already have an account? Sign in"}
+            </Text>
+          </Pressable>
           <Pressable style={styles.googleButton} onPress={onSignIn}>
             <Text style={styles.googleMark}>G</Text>
             <Text style={styles.outlineText}>Continue with Google</Text>
@@ -669,6 +980,7 @@ function SellModal({
   const [image, setImage] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     if (!visible) {
@@ -680,6 +992,7 @@ function SellModal({
       setImage("");
       setError("");
       setSubmitting(false);
+      setUploadingImage(false);
     }
   }, [visible]);
 
@@ -701,18 +1014,6 @@ function SellModal({
 
     if (description.trim().length < 10) {
       setError("Description must be at least 10 characters.");
-      return;
-    }
-
-    const trimmedImage = image.trim();
-    if (
-      trimmedImage &&
-      !trimmedImage.startsWith("http://") &&
-      !trimmedImage.startsWith("https://") &&
-      !trimmedImage.startsWith("http") &&
-      !trimmedImage.startsWith("https")
-    ) {
-      setError("Image URL must start with http or https.");
       return;
     }
 
@@ -831,16 +1132,40 @@ function SellModal({
               ))}
             </ScrollView>
 
-            <Text style={styles.label}>Image URL (optional)</Text>
-            <TextInput
-              value={image}
-              onChangeText={setImage}
-              placeholder="https://..."
-              placeholderTextColor="#87918C"
-              autoCapitalize="none"
-              keyboardType="url"
-              style={styles.field}
-            />
+            <Text style={styles.label}>Product image (optional)</Text>
+            <Pressable
+              disabled={uploadingImage || submitting}
+              style={[styles.imagePicker, uploadingImage && styles.disabled]}
+              onPress={async () => {
+                setError("");
+                setUploadingImage(true);
+                try {
+                  const imageURL = await onUploadImage();
+                  if (imageURL) setImage(imageURL);
+                } catch (uploadError) {
+                  setError(
+                    uploadError instanceof Error
+                      ? uploadError.message
+                      : "Could not upload product image.",
+                  );
+                } finally {
+                  setUploadingImage(false);
+                }
+              }}
+            >
+              {image ? (
+                <Image source={{ uri: image }} style={styles.imagePreview} />
+              ) : (
+                <Text style={styles.imagePickerText}>
+                  {uploadingImage ? "Uploading image..." : "Choose image from device"}
+                </Text>
+              )}
+            </Pressable>
+            {image ? (
+              <Pressable onPress={() => setImage("")}>
+                <Text style={styles.removeImage}>Remove image</Text>
+              </Pressable>
+            ) : null}
 
             {error ? <Text style={styles.authError}>{error}</Text> : null}
 
@@ -1002,6 +1327,27 @@ const styles = StyleSheet.create({
   },
   formTitle: { color: "#173C34", fontSize: 22, fontWeight: "800" },
   authMessage: { color: "#87918C", lineHeight: 20, marginTop: 10 },
+  authLabel: {
+    color: "#365B4C",
+    fontSize: 12,
+    fontWeight: "800",
+    marginTop: 14,
+    marginBottom: 6,
+  },
+  authInput: {
+    height: 48,
+    borderWidth: 1,
+    borderColor: "#DDE4DC",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    color: "#173C34",
+  },
+  authSwitch: {
+    color: "#1F5D4C",
+    textAlign: "center",
+    fontWeight: "700",
+    marginTop: 14,
+  },
   authError: {
     color: "#B64950",
     backgroundColor: "#FBECEE",
@@ -1047,6 +1393,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     color: "#173C34",
   },
+  imagePicker: {
+    minHeight: 130,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: "#B8CEC0",
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F5F8F5",
+    overflow: "hidden",
+  },
+  imagePreview: {
+    width: "100%",
+    height: 180,
+  },
+  imagePickerText: {
+    color: "#205B45",
+    fontWeight: "800",
+  },
+  removeImage: {
+    color: "#A33A2B",
+    fontWeight: "700",
+    textAlign: "right",
+    marginTop: 6,
+  },
   multilineField: {
     height: 80,
     paddingTop: 12,
@@ -1084,4 +1455,3 @@ const styles = StyleSheet.create({
   },
   disabled: { opacity: 0.45 },
 });
-

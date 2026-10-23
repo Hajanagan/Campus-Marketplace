@@ -12,6 +12,12 @@ npm install
 npm run web
 ```
 
+
+> **Demo mode**: The app works out of the box with local seed data until Firebase credentials are added to `.env`.
+
+---
+ ## Firebase setup
+
 The app runs in demo mode until Firebase values are added to `.env`.
 
 For Expo Go, run `npm start` and scan the QR code with your phone. Keep the phone
@@ -22,6 +28,7 @@ running while the app loads.
 Use `npm run android` for an Android emulator or `npm run ios` for an iOS simulator.
 
 ## Firebase setup
+
 
 1. Create a Firebase project and register a Web app.
 2. Enable Google Authentication under Authentication > Sign-in method. Anonymous Authentication remains available for native fallback.

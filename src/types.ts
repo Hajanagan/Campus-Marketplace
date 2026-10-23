@@ -12,5 +12,22 @@ export type Listing = {
   status?: "available" | "sold";
 };
 
+export type Conversation = {
+  id: string;
+  memberIds: string[];
+  memberUsernames: Record<string, string>;
+  listingId?: string;
+  listingTitle?: string;
+  lastMessage?: string;
+  lastMessageAt?: { seconds: number };
+};
+
+export type Message = {
+  id: string;
+  senderId: string;
+  senderUsername: string;
+  text: string;
+  createdAt?: { seconds: number };
+};
 
 export type Tab = "Explore" | "Saved" | "Messages" | "Profile" | "MyListings";
