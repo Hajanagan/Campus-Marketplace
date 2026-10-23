@@ -81,83 +81,26 @@ npm run ios        # iOS simulator (macOS only)
 
 ## 🔥 Firebase Setup
 
-1. Go to the [Firebase Console](https://console.firebase.google.com/) and create a new project.
-2. Register a **Web app** and copy the config values.
-3. Enable **Google Authentication** under *Authentication → Sign-in method*.
-   *(Anonymous auth is also available as a native fallback.)*
-4. Create a **Cloud Firestore** database (start in production mode).
-5. Populate your `.env` file using `.env.example` as a template:
+1. Create a Firebase project and register a Web app.
+2. Enable Google Authentication under Authentication > Sign-in method. Anonymous Authentication remains available for native fallback.
+3. Create a Cloud Firestore database.
+4. Copy the Web app configuration into `.env` using `.env.example`.
+5. Deploy `firestore.rules` with the Firebase CLI or paste them into the Firestore Rules tab.
 
-```env
-EXPO_PUBLIC_FIREBASE_API_KEY=...
-EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=...
-EXPO_PUBLIC_FIREBASE_PROJECT_ID=...
-EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=...
-EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
-EXPO_PUBLIC_FIREBASE_APP_ID=...
-```
+The app uses:
 
-6. Deploy Firestore security rules:
+- `listings`: public reads, authenticated seller-owned creates and edits.
+- `users/{uid}` and `users/{uid}/saved/{listingId}`: owner-only access.
+- `conversations`: members-only access, with messages in a subcollection.
 
-```bash
-# Install Firebase CLI if needed
-npm install -g firebase-tools
+The client Firebase configuration is intentionally public. Access control belongs in Authentication, Firestore Rules, and App Check; never put Admin SDK credentials in this app.
 
-firebase login
-firebase deploy --only firestore:rules
-```
+## Current product flows
 
----
-
-## 🔐 Firestore Security Rules
-
-| Collection | Read | Write |
-|---|---|---|
-| `listings` | Anyone (public) | Authenticated seller who owns the listing |
-| `users/{uid}` | Owner only | Owner only |
-| `users/{uid}/saved/{listingId}` | Owner only | Owner only |
-| `conversations` | Members only | Members only |
-| `conversations/{id}/messages` | Members only | Members only (create) |
-
-> The client Firebase config is **intentionally public**. All access control lives in Authentication, Firestore Rules, and (optionally) App Check. Never expose Admin SDK credentials on the client.
-
----
-
-## 🛠️ Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Framework | [React Native](https://reactnative.dev/) 0.86 |
-| Build Tooling | [Expo SDK 57](https://docs.expo.dev/) |
-| Web Support | [react-native-web](https://necolas.github.io/react-native-web/) |
-| Language | TypeScript 6 |
-| Backend | [Firebase](https://firebase.google.com/) (Firestore + Auth) |
-| Auth | Google Sign-In / Anonymous |
-
----
-
-## 📱 Platform Support
-
-| Platform | Command | Status |
-|---|---|---|
-| Web | `npm run web` | ✅ Supported |
-| Android | `npm run android` | ✅ Supported |
-| iOS | `npm run ios` | ✅ Supported |
-
----
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/your-feature`
-3. Commit your changes: `git commit -m 'feat: add your feature'`
-4. Push to the branch: `git push origin feature/your-feature`
-5. Open a Pull Request
-
----
-
-## 📄 License
-
-This project is licensed under the terms of the [LICENSE](./LICENSE) file included in this repository.
-
----
+- Explore listings with search and category filters.
+- Browse and search without signing in; Google sign-in is required to contact sellers or publish listings.
+- Save and unsave listings.
+- Open a listing detail view and start a seller conversation.
+- Publish a basic listing through the Sell flow.
+- Sign in anonymously for a frictionless student account.
+- View Saved, Messages, and Profile pages.
