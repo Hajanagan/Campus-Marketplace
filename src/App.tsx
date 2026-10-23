@@ -51,6 +51,7 @@ import { SavedPage } from "./pages/SavedPage";
 import { CATEGORIES, getCategoryIcon, seedListings } from "./data";
 import { auth, db, firebaseConfigured, storage } from "./firebase";
 import { Listing, Tab } from "./types";
+import { convertUsdPrice, Currency, formatListingPrice, getExchangeRate } from "./currency";
 
 async function registerUser(user: User) {
   if (!db) return;
@@ -76,6 +77,8 @@ export default function App() {
   const [category, setCategory] = useState("All items");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
+  const [displayCurrency, setDisplayCurrency] = useState<Currency>("USD");
+  const [exchangeRate, setExchangeRate] = useState("300");
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [selected, setSelected] = useState<Listing | null>(null);
   const [user, setUser] = useState<User | null>(auth?.currentUser || null);
@@ -185,12 +188,17 @@ export default function App() {
       if (!isInvalidPriceRange) {
         const minBound = hasMin ? parsedMin : 0;
         const maxBound = hasMax ? parsedMax : Infinity;
-        matchesPrice = item.price >= minBound && item.price <= maxBound;
+        const displayedPrice = convertUsdPrice(
+          item.price,
+          displayCurrency,
+          exchangeRate,
+        );
+        matchesPrice = displayedPrice >= minBound && displayedPrice <= maxBound;
       }
 
       return matchesCategory && matchesQuery && matchesPrice;
     });
-  }, [category, items, queryText, minPrice, maxPrice]);
+  }, [category, items, queryText, minPrice, maxPrice, displayCurrency, exchangeRate]);
   const myListings = useMemo(
     () => (user ? items.filter((item) => item.sellerId === user.uid) : []),
     [items, user],
@@ -378,7 +386,7 @@ export default function App() {
           : Number(price);
       const listing = {
         title: trimmedTitle,
-        price: Number(price),
+        price: priceInUsd,
         category: trimmedCategory,
         seller: user.displayName || user.email || "You",
         sellerId: user.uid,
@@ -388,7 +396,29 @@ export default function App() {
         description: trimmedDescription,
         status: "available",
         createdAt: serverTimestamp(),
-      });
+      } as const;
+      const createdListing = await addDoc(collection(db, "listings"), listing);
+      setItems((current) => [
+        {
+          id: createdListing.id,
+          title: listing.title,
+          price: listing.price,
+          category: listing.category,
+          seller: listing.seller,
+          sellerId: listing.sellerId,
+          campus: listing.campus,
+          condition: listing.condition,
+          image: listing.image,
+          description: listing.description,
+          status: listing.status,
+        },
+        ...current.filter((item) => item.id !== createdListing.id),
+      ]);
+      setQueryText("");
+      setCategory("All items");
+      setMinPrice("");
+      setMaxPrice("");
+      setTab("Explore");
       setSellOpen(false);
     } catch (error) {
       const message =
@@ -512,6 +542,9 @@ export default function App() {
           category={category}
           minPrice={minPrice}
           maxPrice={maxPrice}
+          currency={displayCurrency}
+          exchangeRate={exchangeRate}
+          profilePhotoURL={user?.photoURL || null}
           savedIds={savedIds}
           onQueryChange={setQueryText}
           onCategoryChange={setCategory}
@@ -524,6 +557,7 @@ export default function App() {
           onSave={toggleSaved}
           onOpen={setSelected}
           onProfile={() => setTab("Profile")}
+          
         />
       )}
       {tab === "Saved" && (
@@ -531,6 +565,8 @@ export default function App() {
           items={items.filter((item) => savedIds.includes(item.id))}
           onSave={toggleSaved}
           onOpen={setSelected}
+          currency={displayCurrency}
+          exchangeRate={exchangeRate}
         />
       )}
       {tab === "Messages" && (
@@ -545,6 +581,8 @@ export default function App() {
           items={myListings}
           onOpen={setSelected}
           onSell={() => setSellOpen(true)}
+          currency={displayCurrency}
+          exchangeRate={exchangeRate}
         />
       )}
       {tab === "Profile" && (
@@ -557,6 +595,10 @@ export default function App() {
           firebaseConfigured={firebaseConfigured}
           profileReady={profileReady}
           error={authError}
+          currency={displayCurrency}
+          exchangeRate={exchangeRate}
+          onCurrencyChange={setDisplayCurrency}
+          onExchangeRateChange={setExchangeRate}
           onMyListings={() => (user ? setTab("MyListings") : setAuthOpen(true))}
           onSaved={() => setTab("Saved")}
           onSignIn={() => setAuthOpen(true)}
@@ -574,6 +616,8 @@ export default function App() {
       <ListingModal
         item={selected}
         user={user}
+        currency={displayCurrency}
+        exchangeRate={exchangeRate}
         onClose={() => setSelected(null)}
         onContact={contactSeller}
         onMarkSold={markAsSold}
@@ -669,6 +713,8 @@ function NavItem({
 function ListingModal({
   item,
   user,
+  currency,
+  exchangeRate,
   onClose,
   onContact,
   onMarkSold,
@@ -676,6 +722,8 @@ function ListingModal({
 }: {
   item: Listing | null;
   user: User | null;
+  currency: Currency;
+  exchangeRate: string;
   onClose: () => void;
   onContact: (item: Listing) => void;
   onSelectCategory: (category: string) => void;
@@ -708,7 +756,9 @@ function ListingModal({
                 </Text>
               </Pressable>
               <Text style={styles.detailTitle}>{item.title}</Text>
-              <Text style={styles.detailPrice}>${item.price}</Text>
+              <Text style={styles.detailPrice}>
+                {formatListingPrice(item.price, currency, exchangeRate)}
+              </Text>
               <Text style={styles.muted}>
                 {item.condition} · {item.campus} · {item.seller}
               </Text>
@@ -1005,7 +1055,7 @@ function SellModal({
               style={styles.field}
             />
 
-            <Text style={styles.label}>Price ($)</Text>
+            <Text style={styles.label}>Price ({currency})</Text>
             <TextInput
               value={price}
               onChangeText={setPrice}

@@ -10,6 +10,8 @@ import {
 import { useEffect, useState } from "react";
 import { User } from "firebase/auth";
 import { PageTitle } from "../components/PageTitle";
+import { CurrencyConverter } from "../components/CurrencyConverter";
+import { Currency } from "../currency";
 
 export function ProfilePage({
   user,
@@ -20,6 +22,10 @@ export function ProfilePage({
   firebaseConfigured,
   profileReady,
   error,
+  currency,
+  exchangeRate,
+  onCurrencyChange,
+  onExchangeRateChange,
   onMyListings,
   onSaved,
   onSignIn,
@@ -35,6 +41,10 @@ export function ProfilePage({
   firebaseConfigured: boolean;
   profileReady: boolean;
   error: string;
+  currency: Currency;
+  exchangeRate: string;
+  onCurrencyChange: (currency: Currency) => void;
+  onExchangeRateChange: (rate: string) => void;
   onMyListings: () => void;
   onSaved: () => void;
   onSignIn: () => void;
@@ -258,6 +268,15 @@ export function ProfilePage({
             </Text>
           </View>
         </View>
+      </View>
+
+      <View style={styles.currencyConverter}>
+        <CurrencyConverter
+          currency={currency}
+          exchangeRate={exchangeRate}
+          onCurrencyChange={onCurrencyChange}
+          onExchangeRateChange={onExchangeRateChange}
+        />
       </View>
 
       {/* Feedback and Firebase status */}
@@ -506,6 +525,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E7EDE7",
     paddingHorizontal: 16,
+  },
+  currencyConverter: {
+    marginTop: 12,
   },
   menuRow: {
     minHeight: 78,

@@ -1,5 +1,6 @@
 import {
   FlatList,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,6 +11,7 @@ import {
 import { ListingCard } from "../components/ListingCard";
 import { CATEGORIES } from "../data";
 import { Listing } from "../types";
+import { Currency } from "../currency";
 
 export function ExplorePage({
   items,
@@ -18,6 +20,9 @@ export function ExplorePage({
   category,
   minPrice,
   maxPrice,
+  currency,
+  exchangeRate,
+  profilePhotoURL,
   savedIds,
   onQueryChange,
   onCategoryChange,
@@ -34,6 +39,9 @@ export function ExplorePage({
   category: string;
   minPrice: string;
   maxPrice: string;
+  currency: Currency;
+  exchangeRate: string;
+  profilePhotoURL: string | null;
   savedIds: string[];
   onQueryChange: (value: string) => void;
   onCategoryChange: (value: string) => void;
@@ -69,8 +77,21 @@ export function ExplorePage({
             Find your next{"\n"}favorite thing.
           </Text>
         </View>
-        <Pressable style={styles.avatar} onPress={onProfile}>
-          <Text style={styles.avatarText}>?</Text>
+        <Pressable
+          style={styles.avatar}
+          onPress={onProfile}
+          accessibilityRole="button"
+          accessibilityLabel="Open profile"
+        >
+          {profilePhotoURL ? (
+            <Image
+              source={{ uri: profilePhotoURL }}
+              style={styles.avatarImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <Text style={styles.avatarText}>?</Text>
+          )}
         </Pressable>
       </View>
       <View style={styles.search}>
@@ -94,7 +115,7 @@ export function ExplorePage({
           <TextInput
             value={minPrice}
             onChangeText={onMinPriceChange}
-            placeholder="Min price"
+            placeholder={`Min price (${currency})`}
             placeholderTextColor="#87918C"
             keyboardType="numeric"
             style={styles.priceInput}
@@ -103,7 +124,7 @@ export function ExplorePage({
           <TextInput
             value={maxPrice}
             onChangeText={onMaxPriceChange}
-            placeholder="Max price"
+            placeholder={`Max price (${currency})`}
             placeholderTextColor="#87918C"
             keyboardType="numeric"
             style={styles.priceInput}
@@ -236,6 +257,8 @@ export function ExplorePage({
             onSave={() => onSave(item.id)}
             onOpen={() => onOpen(item)}
             onCategorySelect={(cat) => onCategoryChange(cat)}
+            currency={currency}
+            exchangeRate={exchangeRate}
           />
         )}
       />
@@ -271,7 +294,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#D6E5D7",
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+    overflow: "hidden",
   },
+  avatarImage: { width: "100%", height: "100%" },
   avatarText: { color: "#225347", fontWeight: "800" },
   search: {
     height: 52,
@@ -426,4 +453,3 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
 });
-

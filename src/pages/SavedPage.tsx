@@ -3,14 +3,19 @@ import { EmptyState } from "../components/EmptyState";
 import { ListingCard } from "../components/ListingCard";
 import { PageTitle } from "../components/PageTitle";
 import { Listing } from "../types";
+import { Currency } from "../currency";
 export function SavedPage({
   items,
   onSave,
   onOpen,
+  currency,
+  exchangeRate,
 }: {
   items: Listing[];
   onSave: (id: string) => void;
   onOpen: (item: Listing) => void;
+  currency: Currency;
+  exchangeRate: string;
 }) {
   return (
     <ScrollView contentContainerStyle={styles.content}>
@@ -37,6 +42,8 @@ export function SavedPage({
             saved
             onSave={() => onSave(item.id)}
             onOpen={() => onOpen(item)}
+            currency={currency}
+            exchangeRate={exchangeRate}
           />
         )}
       />

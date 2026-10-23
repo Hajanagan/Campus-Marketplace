@@ -1,85 +1,34 @@
-# 🎓 Campus Marketplace
+# Campus Marketplace
 
-> A mobile-first marketplace for students to **buy, sell, and discover** items within their campus community.
+Expo SDK 57 React Native app for buying and selling items within a campus community.
 
-Built with **React Native + Expo SDK 57**, backed by **Firebase** (Firestore + Google Auth).
+## Run locally
 
----
-
-## ✨ Features
-
-| Feature | Description |
-|---|---|
-| 🔍 **Explore** | Browse and search listings with category filters |
-| 📌 **Save Listings** | Bookmark items to revisit later |
-| 💬 **Messaging** | Start conversations directly with sellers |
-| 📦 **Sell** | Publish listings with title, price, category, condition & image |
-| 👤 **Profile** | View your profile and manage your listings |
-| 🔒 **Auth** | Google Sign-In (anonymous fallback for frictionless access) |
-
----
-
-## 🗂️ Project Structure
-
-```
-campus-marketplace/
-├── src/
-│   ├── App.tsx              # Root navigation & tab layout
-│   ├── firebase.ts          # Firebase initialisation
-│   ├── types.ts             # Shared TypeScript types
-│   ├── data.ts              # Static seed / demo data
-│   ├── pages/
-│   │   ├── ExplorePage.tsx      # Listing feed + search + filters
-│   │   ├── SavedPage.tsx        # Saved/bookmarked listings
-│   │   ├── MessagesPage.tsx     # Inbox / conversations
-│   │   ├── MyListingsPage.tsx   # Seller's own listings
-│   │   └── ProfilePage.tsx      # User profile & settings
-│   └── components/
-│       ├── ListingCard.tsx      # Reusable listing tile
-│       ├── EmptyState.tsx       # Empty-screen placeholder
-│       └── PageTitle.tsx        # Shared page header
-├── assets/                  # Icons & images
-├── firestore.rules          # Firestore security rules
-├── firebase.json            # Firebase CLI config
-├── app.json                 # Expo app config
-└── package.json
-```
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- **Node.js** ≥ 22.13
-- **npm** ≥ 10 (comes with Node 22)
-- [Expo CLI](https://docs.expo.dev/get-started/installation/) — installed automatically via `npx`
-
-### Installation
+Expo SDK 57 requires Node 22.13 or newer.
 
 ```bash
-# 1. Clone the repo
-git clone https://github.com/Hajanagan/Campus-Marketplace.git
-cd Campus-Marketplace
-
-# 2. Copy environment template
 cp .env.example .env
-
-# 3. Install dependencies
 npm install
-
-# 4. Start the development server
-npm run web        # Web browser
-npm start          # Expo Go (scan QR with phone)
-npm run android    # Android emulator
-npm run ios        # iOS simulator (macOS only)
+npm run web
 ```
+
 
 > **Demo mode**: The app works out of the box with local seed data until Firebase credentials are added to `.env`.
 
 ---
+ ## Firebase setup
 
-## 🔥 Firebase Setup
+The app runs in demo mode until Firebase values are added to `.env`.
+
+For Expo Go, run `npm start` and scan the QR code with your phone. Keep the phone
+and computer on the same Wi-Fi. If scanning the QR code does not open the app, run
+`npm run start:tunnel` and scan the newly generated QR code. Keep the terminal
+running while the app loads.
+
+Use `npm run android` for an Android emulator or `npm run ios` for an iOS simulator.
+
+## Firebase setup
+
 
 1. Create a Firebase project and register a Web app.
 2. Enable Google Authentication under Authentication > Sign-in method. Anonymous Authentication remains available for native fallback.
