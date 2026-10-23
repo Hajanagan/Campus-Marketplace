@@ -1,163 +1,48 @@
-# 🎓 Campus Marketplace
+# Campus Marketplace
 
-> A mobile-first marketplace for students to **buy, sell, and discover** items within their campus community.
+Expo SDK 57 React Native app for buying and selling items within a campus community.
 
-Built with **React Native + Expo SDK 57**, backed by **Firebase** (Firestore + Google Auth).
+## Run locally
 
----
-
-## ✨ Features
-
-| Feature | Description |
-|---|---|
-| 🔍 **Explore** | Browse and search listings with category filters |
-| 📌 **Save Listings** | Bookmark items to revisit later |
-| 💬 **Messaging** | Start conversations directly with sellers |
-| 📦 **Sell** | Publish listings with title, price, category, condition & image |
-| 👤 **Profile** | View your profile and manage your listings |
-| 🔒 **Auth** | Google Sign-In (anonymous fallback for frictionless access) |
-
----
-
-## 🗂️ Project Structure
-
-```
-campus-marketplace/
-├── src/
-│   ├── App.tsx              # Root navigation & tab layout
-│   ├── firebase.ts          # Firebase initialisation
-│   ├── types.ts             # Shared TypeScript types
-│   ├── data.ts              # Static seed / demo data
-│   ├── pages/
-│   │   ├── ExplorePage.tsx      # Listing feed + search + filters
-│   │   ├── SavedPage.tsx        # Saved/bookmarked listings
-│   │   ├── MessagesPage.tsx     # Inbox / conversations
-│   │   ├── MyListingsPage.tsx   # Seller's own listings
-│   │   └── ProfilePage.tsx      # User profile & settings
-│   └── components/
-│       ├── ListingCard.tsx      # Reusable listing tile
-│       ├── EmptyState.tsx       # Empty-screen placeholder
-│       └── PageTitle.tsx        # Shared page header
-├── assets/                  # Icons & images
-├── firestore.rules          # Firestore security rules
-├── firebase.json            # Firebase CLI config
-├── app.json                 # Expo app config
-└── package.json
-```
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- **Node.js** ≥ 22.13
-- **npm** ≥ 10 (comes with Node 22)
-- [Expo CLI](https://docs.expo.dev/get-started/installation/) — installed automatically via `npx`
-
-### Installation
+Expo SDK 57 requires Node 22.13 or newer.
 
 ```bash
-# 1. Clone the repo
-git clone https://github.com/Hajanagan/Campus-Marketplace.git
-cd Campus-Marketplace
-
-# 2. Copy environment template
 cp .env.example .env
-
-# 3. Install dependencies
 npm install
-
-# 4. Start the development server
-npm run web        # Web browser
-npm start          # Expo Go (scan QR with phone)
-npm run android    # Android emulator
-npm run ios        # iOS simulator (macOS only)
+npm run web
 ```
 
-> **Demo mode**: The app works out of the box with local seed data until Firebase credentials are added to `.env`.
+The app runs in demo mode until Firebase values are added to `.env`.
 
----
+For Expo Go, run `npm start` and scan the QR code with your phone. Keep the phone
+and computer on the same Wi-Fi. If scanning the QR code does not open the app, run
+`npm run start:tunnel` and scan the newly generated QR code. Keep the terminal
+running while the app loads.
 
-## 🔥 Firebase Setup
+Use `npm run android` for an Android emulator or `npm run ios` for an iOS simulator.
 
-1. Go to the [Firebase Console](https://console.firebase.google.com/) and create a new project.
-2. Register a **Web app** and copy the config values.
-3. Enable **Google Authentication** under *Authentication → Sign-in method*.
-   *(Anonymous auth is also available as a native fallback.)*
-4. Create a **Cloud Firestore** database (start in production mode).
-5. Populate your `.env` file using `.env.example` as a template:
+## Firebase setup
 
-```env
-EXPO_PUBLIC_FIREBASE_API_KEY=...
-EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=...
-EXPO_PUBLIC_FIREBASE_PROJECT_ID=...
-EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=...
-EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
-EXPO_PUBLIC_FIREBASE_APP_ID=...
-```
+1. Create a Firebase project and register a Web app.
+2. Enable Google Authentication under Authentication > Sign-in method. Anonymous Authentication remains available for native fallback.
+3. Create a Cloud Firestore database.
+4. Copy the Web app configuration into `.env` using `.env.example`.
+5. Deploy `firestore.rules` with the Firebase CLI or paste them into the Firestore Rules tab.
 
-6. Deploy Firestore security rules:
+The app uses:
 
-```bash
-# Install Firebase CLI if needed
-npm install -g firebase-tools
+- `listings`: public reads, authenticated seller-owned creates and edits.
+- `users/{uid}` and `users/{uid}/saved/{listingId}`: owner-only access.
+- `conversations`: members-only access, with messages in a subcollection.
 
-firebase login
-firebase deploy --only firestore:rules
-```
+The client Firebase configuration is intentionally public. Access control belongs in Authentication, Firestore Rules, and App Check; never put Admin SDK credentials in this app.
 
----
+## Current product flows
 
-## 🔐 Firestore Security Rules
-
-| Collection | Read | Write |
-|---|---|---|
-| `listings` | Anyone (public) | Authenticated seller who owns the listing |
-| `users/{uid}` | Owner only | Owner only |
-| `users/{uid}/saved/{listingId}` | Owner only | Owner only |
-| `conversations` | Members only | Members only |
-| `conversations/{id}/messages` | Members only | Members only (create) |
-
-> The client Firebase config is **intentionally public**. All access control lives in Authentication, Firestore Rules, and (optionally) App Check. Never expose Admin SDK credentials on the client.
-
----
-
-## 🛠️ Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Framework | [React Native](https://reactnative.dev/) 0.86 |
-| Build Tooling | [Expo SDK 57](https://docs.expo.dev/) |
-| Web Support | [react-native-web](https://necolas.github.io/react-native-web/) |
-| Language | TypeScript 6 |
-| Backend | [Firebase](https://firebase.google.com/) (Firestore + Auth) |
-| Auth | Google Sign-In / Anonymous |
-
----
-
-## 📱 Platform Support
-
-| Platform | Command | Status |
-|---|---|---|
-| Web | `npm run web` | ✅ Supported |
-| Android | `npm run android` | ✅ Supported |
-| iOS | `npm run ios` | ✅ Supported |
-
----
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/your-feature`
-3. Commit your changes: `git commit -m 'feat: add your feature'`
-4. Push to the branch: `git push origin feature/your-feature`
-5. Open a Pull Request
-
----
-
-## 📄 License
-
-This project is licensed under the terms of the [LICENSE](./LICENSE) file included in this repository.
-
----
+- Explore listings with search and category filters.
+- Browse and search without signing in; Google sign-in is required to contact sellers or publish listings.
+- Save and unsave listings.
+- Open a listing detail view and start a seller conversation.
+- Publish a basic listing through the Sell flow.
+- Sign in anonymously for a frictionless student account.
+- View Saved, Messages, and Profile pages.
